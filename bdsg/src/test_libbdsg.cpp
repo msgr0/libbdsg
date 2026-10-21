@@ -5363,7 +5363,7 @@ void test_snarl_distance_index() {
     SnarlDistanceIndex index;
 
     // Set it up for a completely empty graph.
-    vector<const SnarlDistanceIndex::TemporaryDistanceIndex *>
+    vector<SnarlDistanceIndex::TemporaryDistanceIndex *>
         empty_temp_indexes;
     HashGraph empty_graph;
     index.get_snarl_tree_records(empty_temp_indexes, &empty_graph);

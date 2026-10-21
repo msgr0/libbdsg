@@ -1758,6 +1758,11 @@ public:
     public:
         TemporaryDistanceIndex();
         ~TemporaryDistanceIndex();
+        // The destructor would otherwise suppress moves, turning every assignment into a deep copy
+        TemporaryDistanceIndex(const TemporaryDistanceIndex&) = default;
+        TemporaryDistanceIndex(TemporaryDistanceIndex&&) = default;
+        TemporaryDistanceIndex& operator=(const TemporaryDistanceIndex&) = default;
+        TemporaryDistanceIndex& operator=(TemporaryDistanceIndex&&) = default;
 
         //Get a string of the start and end of a structure
         std::string structure_start_end_as_string(temp_record_ref_t index) const;
@@ -1877,8 +1882,15 @@ public:
             vector<temp_record_ref_t> children; //All children, nodes and chains, in arbitrary order
             //The ranks & orientations of children that are tips
             unordered_map<size_t, bool> tippy_child_ranks;
-            //vector<tuple<pair<size_t, bool>, pair<size_t, bool>, size_t>> distances;
-            unordered_map<pair<pair<size_t, bool>, pair<size_t, bool>>, size_t> distances;
+            // Distances between internal node sides, as an upper-triangular matrix (see distance_offset()).
+            // max() means unreachable. Empty unless this snarl keeps its distances.
+            vector<size_t> distances;
+            // Size distances to hold every pair of internal node sides
+            void allocate_distances();
+            // Index into distances for two sides, given as rank in the snarl and orientation
+            size_t distance_offset(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const;
+            // Call iteratee(rank1, right_side1, rank2, right_side2, distance) for each stored distance
+            void for_each_distance(const std::function<void(size_t, bool, size_t, bool, size_t)>& iteratee) const;
             //linearized hub labels (if not empty, this is an oversized snarl)
             vector<size_t> hub_labels;
          
@@ -2041,7 +2053,8 @@ public:
 public:
     //Given an arbitrary number of temporary indexes, produce the final one
     //Each temporary index must be a separate connected component
-    void get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
+    //The temporary indexes are consumed: each is emptied once it has been copied in
+    void get_snarl_tree_records(const vector<TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
 
 
 };

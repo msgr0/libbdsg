@@ -136,6 +136,39 @@ size_t SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord::get_max
     }
 }
 
+void SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord::allocate_distances() {
+    size_t side_count = node_count * 2;
+    distances.assign(side_count * (side_count + 1) / 2, std::numeric_limits<size_t>::max());
+}
+
+size_t SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord::distance_offset(size_t rank1, bool right_side1,
+        size_t rank2, bool right_side2) const {
+    // Same side numbering as the final index: internal children of a non-root snarl start at rank 2
+    size_t first_rank = is_root_snarl ? 0 : 2;
+    size_t side1 = (rank1 - first_rank) * 2 + right_side1;
+    size_t side2 = (rank2 - first_rank) * 2 + right_side2;
+    if (side1 > side2) {
+        std::swap(side1, side2);
+    }
+    // Row side1 of the upper triangle starts after rows 0..side1-1, which hold side_count, side_count-1, ... entries
+    size_t side_count = node_count * 2;
+    return side1 * (2 * side_count - side1 + 1) / 2 + (side2 - side1);
+}
+
+void SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord::for_each_distance(
+        const std::function<void(size_t, bool, size_t, bool, size_t)>& iteratee) const {
+    size_t first_rank = is_root_snarl ? 0 : 2;
+    size_t side_count = node_count * 2;
+    size_t offset = 0;
+    for (size_t side1 = 0; side1 < side_count && offset < distances.size(); side1++) {
+        for (size_t side2 = side1; side2 < side_count; side2++, offset++) {
+            if (distances[offset] != std::numeric_limits<size_t>::max()) {
+                iteratee(side1 / 2 + first_rank, side1 % 2, side2 / 2 + first_rank, side2 % 2, distances[offset]);
+            }
+        }
+    }
+}
+
 
 
 
@@ -4370,7 +4403,7 @@ std::tuple<size_t, size_t, size_t> SnarlDistanceIndex::get_usage() {
 }
 
 
-void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph) {
+void SnarlDistanceIndex::get_snarl_tree_records(const vector<TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph) {
 
 
     //Convert temporary distance indexes into the final index stored as a single vector
@@ -4429,7 +4462,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
     //Root components of all the indexes are numbered consecutively
     size_t first_component_num = 0;
     for (size_t temp_index_i = 0 ; temp_index_i < temporary_indexes.size() ; temp_index_i++) {
-        const TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
+        TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
         //Get a stack of temporary snarl tree records to be added to the index
         //Initially, it contains only the root components
         //This reverses the order of the connected components but I don't think that matters
@@ -4552,7 +4585,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                             //Add a snarl to the chain
                             assert(child_record_index.first == TEMP_SNARL);
                             //Get the temporary snarl record
-                            const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->get_snarl(child_record_index);
+                            TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->get_snarl(child_record_index);
                             if (!temp_snarl_record.is_trivial && !temp_snarl_record.is_simple) {
                                 //If this is an actual snarl that we need to make
 
@@ -4589,24 +4622,20 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                                     // Add code to determine that somewhere!
                                 } else {
                                     // Store individual distance entries.
-                                    for (const auto& it : temp_snarl_record.distances) {
-                                        pair<size_t, size_t> node_rank1 = it.first.first;
-                                        pair<size_t, size_t> node_rank2 = it.first.second;
-                                        const size_t distance = it.second;
+                                    if (!ignore_distances) {
+                                        temp_snarl_record.for_each_distance([&](size_t rank1, bool right_side1, size_t rank2, bool right_side2, size_t distance) {
+                                            snarl_record_constructor.set_distance(rank1, right_side1, rank2, right_side2, distance);
 
-                                        if (!ignore_distances) {
-                                            //If we are keeping track of distances
-                                            //If the distance exceeded the limit, then it wasn't found in the first place
-                                            snarl_record_constructor.set_distance(node_rank1.first, node_rank1.second,
-                                                node_rank2.first, node_rank2.second, distance);
-
-                                            if (temp_snarl_record.tippy_child_ranks.count(node_rank1.first)
-                                                && temp_snarl_record.tippy_child_ranks.count(node_rank2.first)) {
+                                            if (temp_snarl_record.tippy_child_ranks.count(rank1)
+                                                && temp_snarl_record.tippy_child_ranks.count(rank2)) {
                                                 snarl_record_constructor.set_tip_tip_connected();
                                             }
-                                        }
+                                        });
                                     }
                                 }
+                                // The final record has the distances now, so free the temporary copies
+                                vector<size_t>().swap(temp_snarl_record.distances);
+                                vector<size_t>().swap(temp_snarl_record.hub_labels);
                                 //Now set the connectivity of this snarl
                                 if (temp_snarl_record.distance_start_start != std::numeric_limits<size_t>::max()) {
                                     snarl_record_constructor.set_start_start_connected();
@@ -4737,7 +4766,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
             } else if (current_record_index.first == TEMP_SNARL) {
 
                 bool ignore_distances = (snarl_size_limit == 0) || only_top_level_chain_distances;
-                const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->get_snarl(current_record_index);
+                TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->get_snarl(current_record_index);
                 bool is_oversized = !temp_snarl_record.hub_labels.empty();
                 //This is a root-level snarl
                 record_t record_type = encode_root_snarl(!ignore_distances, is_oversized);
@@ -4758,15 +4787,14 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                             snarl_record_constructor.set_hhl_entry(i, temp_snarl_record.hub_labels.at(i));
                         }
                     } else {
-                        for (const auto& it : temp_snarl_record.distances) {
-                            const pair<size_t, bool> node_rank1 = it.first.first;
-                            const pair<size_t, bool> node_rank2 = it.first.second;
-                            const size_t distance = it.second;
-                            snarl_record_constructor.set_distance(node_rank1.first, node_rank1.second,
-                             node_rank2.first, node_rank2.second, distance);
-                        }
+                        temp_snarl_record.for_each_distance([&](size_t rank1, bool right_side1, size_t rank2, bool right_side2, size_t distance) {
+                            snarl_record_constructor.set_distance(rank1, right_side1, rank2, right_side2, distance);
+                        });
                     }
                 }
+                // The final record has the distances now, so free the temporary copies
+                vector<size_t>().swap(temp_snarl_record.distances);
+                vector<size_t>().swap(temp_snarl_record.hub_labels);
 
                 for (const temp_record_ref_t& child : temp_snarl_record.children) {
                         temp_record_stack.emplace_back(child);
@@ -4842,7 +4870,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
 
     /* Now go through everything again and give everything children */
     for (size_t temp_index_i = 0 ; temp_index_i < temporary_indexes.size() ; temp_index_i++) {
-        const TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
+        TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
         for (size_t temp_snarl_i = 0 ; temp_snarl_i < temp_index->temp_snarl_records.size() ; temp_snarl_i ++) {
             temp_record_ref_t temp_snarl_ref = make_pair(TEMP_SNARL, temp_snarl_i);
             //Get the temporary index for this snarl
@@ -4885,6 +4913,8 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                 }
             }
         }
+        // This temporary index is fully copied in, so free it
+        *temp_index = TemporaryDistanceIndex();
     }
 
 
