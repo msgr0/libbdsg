@@ -544,15 +544,11 @@ void bind_bdsg_snarl_distance_index(std::function< pybind11::module &(std::strin
 		cl.def("print_descendants_of", (void (bdsg::SnarlDistanceIndex::*)(const struct handlegraph::net_handle_t) const) &bdsg::SnarlDistanceIndex::print_descendants_of, "C++: bdsg::SnarlDistanceIndex::print_descendants_of(const struct handlegraph::net_handle_t) const --> void", pybind11::arg("net"));
 		cl.def("print_snarl_stats", (void (bdsg::SnarlDistanceIndex::*)() const) &bdsg::SnarlDistanceIndex::print_snarl_stats, "C++: bdsg::SnarlDistanceIndex::print_snarl_stats() const --> void");
 		cl.def("write_snarls_to_json", (void (bdsg::SnarlDistanceIndex::*)() const) &bdsg::SnarlDistanceIndex::write_snarls_to_json, "C++: bdsg::SnarlDistanceIndex::write_snarls_to_json() const --> void");
-		cl.def("validate_index", (void (bdsg::SnarlDistanceIndex::*)() const) &bdsg::SnarlDistanceIndex::validate_index, "C++: bdsg::SnarlDistanceIndex::validate_index() const --> void");
-		cl.def("validate_descendants_of", (void (bdsg::SnarlDistanceIndex::*)(const struct handlegraph::net_handle_t) const) &bdsg::SnarlDistanceIndex::validate_descendants_of, "C++: bdsg::SnarlDistanceIndex::validate_descendants_of(const struct handlegraph::net_handle_t) const --> void", pybind11::arg("net"));
-		cl.def("validate_ancestors_of", (void (bdsg::SnarlDistanceIndex::*)(const struct handlegraph::net_handle_t) const) &bdsg::SnarlDistanceIndex::validate_ancestors_of, "C++: bdsg::SnarlDistanceIndex::validate_ancestors_of(const struct handlegraph::net_handle_t) const --> void", pybind11::arg("net"));
 		cl.def("get_usage", (class std::tuple<unsigned long, unsigned long, unsigned long> (bdsg::SnarlDistanceIndex::*)()) &bdsg::SnarlDistanceIndex::get_usage, "C++: bdsg::SnarlDistanceIndex::get_usage() --> class std::tuple<unsigned long, unsigned long, unsigned long>");
 		cl.def_static("sum", (unsigned long (*)(const unsigned long &, const unsigned long &)) &bdsg::SnarlDistanceIndex::sum, "Add integers, returning max() if any of them are max()\n\nC++: bdsg::SnarlDistanceIndex::sum(const unsigned long &, const unsigned long &) --> unsigned long", pybind11::arg("val1"), pybind11::arg("val2"));
 		cl.def_static("minus", (unsigned long (*)(unsigned long, unsigned long)) &bdsg::SnarlDistanceIndex::minus, "C++: bdsg::SnarlDistanceIndex::minus(unsigned long, unsigned long) --> unsigned long", pybind11::arg("x"), pybind11::arg("y"));
 		cl.def_static("maximum", (unsigned long (*)(unsigned long, unsigned long)) &bdsg::SnarlDistanceIndex::maximum, "C++: bdsg::SnarlDistanceIndex::maximum(unsigned long, unsigned long) --> unsigned long", pybind11::arg("x"), pybind11::arg("y"));
 		cl.def_static("bit_width", (unsigned long (*)(unsigned long)) &bdsg::SnarlDistanceIndex::bit_width, "C++: bdsg::SnarlDistanceIndex::bit_width(unsigned long) --> unsigned long", pybind11::arg("value"));
-		cl.def("time_accesses", (void (bdsg::SnarlDistanceIndex::*)()) &bdsg::SnarlDistanceIndex::time_accesses, "C++: bdsg::SnarlDistanceIndex::time_accesses() --> void");
 
 		{ // bdsg::SnarlDistanceIndex::TemporaryDistanceIndex file:bdsg/snarl_distance_index.hpp line:1808
 			auto & enclosing_class = cl;

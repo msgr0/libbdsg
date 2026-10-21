@@ -1,8 +1,6 @@
 #ifndef BDSG_SNARL_DISTANCE_HPP_INCLUDED
 #define BDSG_SNARL_DISTANCE_HPP_INCLUDED
 
-//#define debug_distance_indexing
-//#define count_allocations
 
 #include <handlegraph/snarl_decomposition.hpp>
 #include <handlegraph/algorithms/dijkstra.hpp>
@@ -11,7 +9,6 @@
 #include <bdsg/internal/mapped_structs.hpp>
 #include <string>
 #include <numeric>
-#include <atomic>
 #include <arpa/inet.h>
 
 /*
@@ -241,21 +238,8 @@ public:
     ///Otherwise, distance is calculated from the first position going forward to the second position going forward.
     ///The distance includes one of the positions; the distance from one position to itself is 0.
     ///Returns std::numeric_limits<size_t>::max() if there is no path between the two positions.
-    ///
-    ///distance_traceback is helping to find actual distance path. For each of the nodes, keep a vector of the ancestors of the node
-    ///and the distance and direction (as + or - values of the distance) taken in the minimum distance path to get to the start and end of the parent.
-    ///
-    ///For example, if the first node is traversed forward and only reaches the end node of its parent chain, then the values stored will be <inf, +distance>.
-    ///If it were traversed backwards to reach the start node and couldn't reach the end node, then the values stored would be <-distance, inf>.
-    ///The distance value is the distance to the end of the node to the and of the chain/snarl, and distances stored are distances within the net_handle associated with it.
-    ///So the first value in the vector will always be node itself and the offset in the node, and the second value will be the parent chain and the distance from the.
-    ///ends of the node to the ends of the parent ( or the distance between nodes in the chain).
-    ///The last value of the two nodes should match (in the absolute value at least). It will be the common ancestor node and the distances will be the distance to the 
-    ///start/end of the other node with the same meaning for the sign of the distance.
-    ///The hints will go up to the lowest common ancestor needed for finding the shortest distance, which may or may not be the LCA or the root.
     size_t minimum_distance(const handlegraph::nid_t id1, const bool rev1, const size_t offset1, const handlegraph::nid_t id2, 
-                            const bool rev2, const size_t offset2, bool unoriented_distance = false, const HandleGraph* graph=nullptr, 
-                            pair<vector<tuple<net_handle_t, int32_t, int32_t>>, vector<tuple<net_handle_t, int32_t, int32_t>>>* distance_traceback=nullptr) const ;
+                            const bool rev2, const size_t offset2, bool unoriented_distance = false, const HandleGraph* graph=nullptr) const;
 
     ///Find an approximation of the maximum distance between two positions. 
     ///This isn't a true maximum- the only guarantee is that it's greater than or equal to the minimum distance.
@@ -590,35 +574,6 @@ public:
     ///May only be called if a path actually exists between the given start
     ///and end.
     net_handle_t get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const;
-
-private:
-    
-    // TODO: This is apparently private because it does not actually work, and right now just prints a message to that effect.
-    // handlegraph::algorithms::for_each_handle_in_shortest_path() is available instead, but it doesn't use the index.
-    //
-    ///Function to walk through the shortest path between the two nodes+orientations. Orientation is the same as for minimum_distance - 
-    ///traverses from the first node going forward to the second node going forward.
-    ///Calls iteratee on each node of the shortest path between the nodes and the distance to the start of that node
-    void for_each_handle_in_shortest_path(const handlegraph::nid_t id1, const bool rev1, const handlegraph::nid_t id2, const bool rev2, 
-                                          const HandleGraph* graph, const std::function<bool(const handlegraph::handle_t, size_t)>& iteratee) const;
-
-    ///Helper function for recursively traversing the shortest path in a snarl.
-    ///start and end must be children (or sentinels) of the snarl.
-    ///The distance found will traverse start going forward and reach end going forward.
-    ///doesn't call iteratee on start or end.
-    ///If to_duplicate isn't the nullptr, then keep a list of everything traversed (flipped) and its length
-    void for_each_handle_in_shortest_path_in_snarl(const net_handle_t& snarl_handle, net_handle_t start, net_handle_t end,
-                                          size_t distance_to_traverse, size_t& distance_traversed, const HandleGraph* graph, 
-                                          const std::function<bool(const handlegraph::handle_t, size_t)>& iteratee,
-                                          vector<pair<net_handle_t, size_t>>* to_duplicate) const;
-    ///Helper function for recursively traversing the shortest path in a chain.
-    ///start and end must be children of the chain.
-    ///iteratee is not run on start or end.
-    void for_each_handle_in_shortest_path_in_chain(const net_handle_t& chain_handle, net_handle_t start, net_handle_t end,
-                                          size_t distance_to_traverse, size_t& distance_traversed, const HandleGraph* graph, 
-                                          const std::function<bool(const handlegraph::handle_t, size_t)>& iteratee,
-                                          vector<pair<net_handle_t, size_t>>* to_duplicate) const;
-
 
 ////////////////////////////// How to interpret net_handle_ts
 //
@@ -1023,7 +978,6 @@ private:
     // that start with component count
     const static size_t CURRENT_VERSION_NUMBER = 5;
     // A version to allow though but warn about
-    const static size_t WARN_VERSION_NUMBER = 9999; //placeholder value
     // Arbitrary large number which doens't overflow the number of bits we give
     const static size_t VERSION_NUMBER_SENTINEL = (1 << 10) - 1;
 
@@ -1189,8 +1143,6 @@ private:
     //the distances along top-level chains but don't store internal distances in snarls or in nested chains
     //This overrides snarl_size_limit
     bool only_top_level_chain_distances=false;
-    static const int max_num_size_limit_warnings = 100;
-    std::atomic<int> size_limit_warnings{0};
     static const uint32_t magic_number = 1738636486;
     
 public:
@@ -1777,9 +1729,6 @@ public:
     //Validate the distance index. Without debug turned on, this will only
     //assert a bunch of stuff and try to write the thing that fails to cerr
     //With debug turned on, write the whole index the same as print_self.
-    void validate_index() const;
-    void validate_descendants_of(const net_handle_t net) const;
-    void validate_ancestors_of(const net_handle_t net) const;
 
     std::tuple<size_t, size_t, size_t> get_usage() ;
 
@@ -2094,7 +2043,6 @@ public:
     //Each temporary index must be a separate connected component
     void get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
 
-    void time_accesses();
 
 };
 
