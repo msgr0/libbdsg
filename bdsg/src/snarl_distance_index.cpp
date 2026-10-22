@@ -1580,11 +1580,11 @@ pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_ha
 
     bool is_connected = true;
     if (is_root(parent2) && is_root(parent1)){
-        size_t parent_record_offset1 = SnarlTreeRecord(parent1, &snarl_tree_records).get_parent_record_offset();
-        size_t parent_record_offset2 = SnarlTreeRecord(parent2, &snarl_tree_records).get_parent_record_offset();
-        if (parent_record_offset1 != parent_record_offset2) {
-            is_connected = false;
-        }
+        //Neither climb met below the root. Each child of the root is its own connected
+        //component, so the nets can only be connected if both are inside the same root snarl.
+        //(Comparing parent record offsets here never worked: a root snarl's parent is the root,
+        //so every pair looked connected and minimum_distance walked all the way up for nothing.)
+        is_connected = is_root_snarl(parent1) && get_record_offset(parent1) == get_record_offset(parent2);
     }
     return make_pair(canonical(parent2), is_connected);
 }

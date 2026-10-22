@@ -419,6 +419,30 @@ std::string ReferencePathOverlay::get_path_name(const path_handle_t& path_handle
     return graph->get_path_name(path_handle);
 }
 
+PathSense ReferencePathOverlay::get_sense(const path_handle_t& handle) const {
+    return graph->get_sense(handle);
+}
+
+std::string ReferencePathOverlay::get_sample_name(const path_handle_t& handle) const {
+    return graph->get_sample_name(handle);
+}
+
+std::string ReferencePathOverlay::get_locus_name(const path_handle_t& handle) const {
+    return graph->get_locus_name(handle);
+}
+
+size_t ReferencePathOverlay::get_haplotype(const path_handle_t& handle) const {
+    return graph->get_haplotype(handle);
+}
+
+size_t ReferencePathOverlay::get_phase_block(const path_handle_t& handle) const {
+    return graph->get_phase_block(handle);
+}
+
+subrange_t ReferencePathOverlay::get_subrange(const path_handle_t& handle) const {
+    return graph->get_subrange(handle);
+}
+
 bool ReferencePathOverlay::get_is_circular(const path_handle_t& path_handle) const {
     return graph->get_is_circular(path_handle);
 }

@@ -133,6 +133,15 @@ public:
     
     /// Look up the name of a path from a handle to it
     std::string get_path_name(const path_handle_t& path_handle) const;
+
+    /// Path metadata comes straight from the backing graph. The PathMetadata
+    /// defaults would re-parse the path name with a regex on every call.
+    PathSense get_sense(const path_handle_t& handle) const;
+    std::string get_sample_name(const path_handle_t& handle) const;
+    std::string get_locus_name(const path_handle_t& handle) const;
+    size_t get_haplotype(const path_handle_t& handle) const;
+    size_t get_phase_block(const path_handle_t& handle) const;
+    subrange_t get_subrange(const path_handle_t& handle) const;
     
     /// Look up whether a path is circular
     bool get_is_circular(const path_handle_t& path_handle) const;
